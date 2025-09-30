@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">OverloadApp</string>
+    <string name="title_activity_driving">DrivingActivity</string>
 </resources>
