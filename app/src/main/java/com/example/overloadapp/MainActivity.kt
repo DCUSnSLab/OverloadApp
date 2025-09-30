@@ -20,9 +20,14 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -33,6 +38,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.sp
 
 import com.example.overloadapp.ui.theme.OverloadAppTheme
 import com.example.overloadapp.ui.theme.MyOrange40
@@ -78,14 +84,15 @@ fun MyAppContent() {
             MyBottomBar()
         }
     ) { innerPadding ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
                 .background(MyGray80),
-            contentAlignment = Alignment.Center
         ) {
-            Text(text = "Hello World")
+            ProfileSection()
+            Spacer(modifier = Modifier.height(16.dp))
+            RecentHistorySection()
         }
     }
 }
@@ -97,7 +104,7 @@ fun MyBottomBar() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.LightGray) // 전체 바 배경 (필요없으면 제거)
+            .background(MyGray80) // 전체 바 배경 (필요없으면 제거)
             .navigationBarsPadding()
     ) {
         // "환경설정" 버튼
@@ -152,7 +159,7 @@ fun BottomBarButton(
             painter = painterResource(id = iconResId),
             contentDescription = text,
             modifier = Modifier
-                .height(32.dp)  // 아이콘 높이를 동일하게 고정
+                .height(38.dp)  // 아이콘 높이를 동일하게 고정
                 .aspectRatio(1f, matchHeightConstraintsFirst = false), // 정사각형 비율 유지
             contentScale = ContentScale.Fit
         )
@@ -160,8 +167,80 @@ fun BottomBarButton(
             text = text,
             modifier = Modifier.padding(top = 6.dp),
             color = Color.White,
-            fontWeight = FontWeight.Medium
+            fontWeight = FontWeight.Medium,
+            fontSize = 16.sp
         )
+    }
+}
+
+@Composable
+fun ProfileSection() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Spacer(modifier = Modifier.width(8.dp))
+            // 프로필 아이콘 (Vector Asset으로 추가)
+            Image(
+                painter = painterResource(id = R.drawable.ic_person),
+                contentDescription = "프로필 사진",
+                modifier = Modifier
+                    .height(32.dp)
+                    .aspectRatio(1f, matchHeightConstraintsFirst = false),
+                    //.background(MyGray40, shape = RoundedCornerShape(8.dp)),
+                contentScale = ContentScale.Fit
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column {
+                Text(text = "홍길동 님", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text(text = "차량 등록 필요", fontWeight = FontWeight.Bold, color = MyOrange40)
+            }
+
+            Spacer(modifier = Modifier.weight(0.5f))
+
+            // 차량 등록 버튼
+            Box(
+                modifier = Modifier
+                    .background(MyBlue40, shape = RoundedCornerShape(24.dp))
+                    .clickable { /* 차량 등록 버튼 클릭 */ }
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                Text(text = "차량등록 +", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+fun RecentHistorySection() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MyGray80) // 운행 이력 섹션의 배경색
+            .padding(16.dp)
+    ) {
+        // 최근 운행 이력 텍스트
+        Text(text = "최근 운행 이력", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 운행 이력 없음 텍스트
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp) // 원하는 높이로 조절
+                .background(Color.White, shape = RoundedCornerShape(24.dp))
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(text = "운행 이력 없음", color = Color.Gray)
+        }
     }
 }
 
