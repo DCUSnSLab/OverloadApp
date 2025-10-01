@@ -81,7 +81,7 @@ fun MyAppContent() {
             )
         },
         bottomBar = {
-            MyBottomBar()
+            MainBottomBar()
         }
     ) { innerPadding ->
         Column(
@@ -208,7 +208,7 @@ fun BottomBarButton(
 }
 
 @Composable
-fun MyBottomBar() {
+fun MainBottomBar() {
     val context = LocalContext.current
 
     Column(
