@@ -99,6 +99,7 @@ fun MyAppContent() {
 
 @Composable
 fun ProfileSection() {
+    val context = LocalContext.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -132,8 +133,11 @@ fun ProfileSection() {
             Box(
                 modifier = Modifier
                     .background(MyBlue40, shape = RoundedCornerShape(24.dp))
-                    .clickable { /* 차량 등록 버튼 클릭 */ }
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .clickable {
+                        val intent = Intent(context, RegisteringActivity::class.java)
+                        context.startActivity(intent)
+                    }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
             ) {
                 Text(text = "차량등록 +", color = Color.White, fontWeight = FontWeight.Bold)
             }

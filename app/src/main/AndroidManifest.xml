@@ -12,6 +12,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.OverloadApp">
         <activity
+            android:name=".RegisteringActivity"
+            android:exported="false"
+            android:label="@string/title_activity_registering"
+            android:theme="@style/Theme.OverloadApp" />
+        <activity
             android:name=".DrivingActivity"
             android:exported="false"
             android:label="@string/title_activity_driving"
