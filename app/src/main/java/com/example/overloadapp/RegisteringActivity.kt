@@ -1,6 +1,15 @@
 package com.example.overloadapp
 
 import android.content.Intent
+import android.app.Activity
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
+import android.content.Context
+import android.os.Build
+import androidx.activity.compose.ManagedActivityResultLauncher
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -25,6 +34,7 @@ import com.example.overloadapp.ui.theme.MyBlue80
 import com.example.overloadapp.ui.theme.MyGray40
 import com.example.overloadapp.ui.theme.MyGray80
 import com.example.overloadapp.ui.theme.OverloadAppTheme
+
 
 class RegisteringActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -88,7 +98,34 @@ fun RegisteringScreen() {
 
 @Composable
 fun BluetoothBottomBar() {
-    //val context = LocalContext.current
+    val context = LocalContext.current
+    val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+    val bluetoothAdapter = bluetoothManager.adapter
+
+    // 블루투스 활성화 요청 런처
+    val enableBluetoothLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            // 블루투스 활성화 성공
+        }
+    }
+
+    // 블루투스 권한 요청 런처
+    val bluetoothPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        // 권한 요청 결과 처리
+        val granted = permissions.entries.all { it.value }
+        if (granted) {
+            // 모든 권한이 허가되었을 경우, 블루투스 활성화 요청 시작
+            val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+            enableBluetoothLauncher.launch(enableBtIntent)
+        } else {
+            // 권한이 거부되었을 경우, 사용자에게 안내
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -98,10 +135,25 @@ fun BluetoothBottomBar() {
         // "환경설정" 버튼
         BottomBarButton(
             iconResId = R.drawable.ic_settings,
-            text = "블루투스 설정",
+            text = "블루투스 사용 설정",
             buttonColor = MyGray40,
             modifier = Modifier.fillMaxWidth(),
-            onClick = { /* 다른 동작 구현 */ }
+            onClick = {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    // Android 12 이상에서 런타임 권한 요청
+                    bluetoothPermissionLauncher.launch(
+                        arrayOf(
+                            android.Manifest.permission.BLUETOOTH_CONNECT,
+                            android.Manifest.permission.BLUETOOTH_SCAN,
+                            android.Manifest.permission.BLUETOOTH_ADVERTISE
+                        )
+                    )
+                } else {
+                    // Android 11 이하에서는 Manifest 권한만으로 충분
+                    val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+                    enableBluetoothLauncher.launch(enableBtIntent)
+                }
+            }
         )
     }
 }
