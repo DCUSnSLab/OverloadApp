@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.content.PermissionChecker
 
+import com.example.overloadapp.ui.theme.MyOrange40
 import com.example.overloadapp.ui.theme.MyBlue40
 import com.example.overloadapp.ui.theme.MyBlue80
 import com.example.overloadapp.ui.theme.MyGray40
@@ -416,6 +417,11 @@ fun BluetoothBottomBar() {
     val context = LocalContext.current
     val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     val bluetoothAdapter = bluetoothManager.adapter
+    var isBluetoothOn by remember {
+        mutableStateOf(bluetoothAdapter?.isEnabled == true)
+    }
+    val buttonColor = if (isBluetoothOn) MyGray80 else MyOrange40
+    val textColor = if (isBluetoothOn) Color.Black else Color.White
 
     // 블루투스 활성화 요청 런처
     val enableBluetoothLauncher = rememberLauncherForActivityResult(
@@ -423,6 +429,7 @@ fun BluetoothBottomBar() {
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             // 블루투스 활성화 성공
+            isBluetoothOn = true
         }
     }
 
@@ -451,7 +458,8 @@ fun BluetoothBottomBar() {
         BottomBarButton(
             iconResId = R.drawable.ic_settings,
             text = "블루투스 사용 설정",
-            buttonColor = MyGray40,
+            buttonColor = buttonColor,
+            textColor = textColor,
             modifier = Modifier.fillMaxWidth(),
             onClick = {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

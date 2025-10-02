@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.sp
@@ -177,6 +178,7 @@ fun BottomBarButton(
     iconResId: Int,
     text: String,
     buttonColor: Color,
+    textColor: Color,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
@@ -195,12 +197,13 @@ fun BottomBarButton(
             modifier = Modifier
                 .height(38.dp)  // 아이콘 높이를 동일하게 고정
                 .aspectRatio(1f, matchHeightConstraintsFirst = false), // 정사각형 비율 유지
-            contentScale = ContentScale.Fit
+            contentScale = ContentScale.Fit,
+            colorFilter = ColorFilter.tint(textColor)
         )
         Text(
             text = text,
             modifier = Modifier.padding(top = 6.dp),
-            color = Color.White,
+            color = textColor,
             fontWeight = FontWeight.Medium,
             fontSize = 16.sp
         )
@@ -222,6 +225,7 @@ fun MainBottomBar() {
             iconResId = R.drawable.ic_settings,
             text = "환경설정",
             buttonColor = MyGray40,
+            textColor = Color.White,
             modifier = Modifier.fillMaxWidth(),
             onClick = { /* 다른 동작 구현 */ }
         )
@@ -230,6 +234,7 @@ fun MainBottomBar() {
             iconResId = R.drawable.ic_history,
             text = "운행이력",
             buttonColor = MyBlue80,
+            textColor = Color.White,
             modifier = Modifier.fillMaxWidth(),
             onClick = { /* 다른 동작 구현 */ }
         )
@@ -238,6 +243,7 @@ fun MainBottomBar() {
             iconResId = R.drawable.ic_flag,
             text = "운행시작",
             buttonColor = MyBlue40,
+            textColor = Color.White,
             modifier = Modifier.fillMaxWidth(),
             onClick = {
                 // 운행시작 버튼을 누르면 DrivingActivity를 시작
