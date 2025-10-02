@@ -23,7 +23,6 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
@@ -41,11 +40,18 @@ import android.content.BroadcastReceiver
 import android.content.IntentFilter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.PermissionChecker
@@ -56,6 +62,20 @@ import com.example.overloadapp.ui.theme.MyGray80
 import com.example.overloadapp.ui.theme.OverloadAppTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import android.bluetooth.BluetoothSocket
+import android.content.pm.PackageManager
+import android.os.Handler
+import android.os.Looper
+import android.widget.Toast
+import androidx.annotation.RequiresPermission
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
+import java.util.UUID
 
 
 class RegisteringActivity : ComponentActivity() {
@@ -69,6 +89,11 @@ class RegisteringActivity : ComponentActivity() {
         }
     }
 }
+
+var bluetoothSocket: BluetoothSocket? = null
+var inputStream: InputStream? = null
+var outputStream: OutputStream? = null
+val MY_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -107,6 +132,41 @@ fun RegisteringScreen() {
 }
 
 @Composable
+fun BluetoothDeviceElement(
+    name: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit) {
+    Row(
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .fillMaxWidth() // Row가 가로로 꽉 차도록 설정
+            .height(64.dp)
+            .background(Color.White, shape = RoundedCornerShape(24.dp))
+            .padding(horizontal = 16.dp, vertical = 8.dp) // 좌우 패딩 추가
+    ) {
+        Text(
+            text = name,
+            modifier = Modifier
+                .padding(top = 6.dp)
+                .weight(1f),
+            color = Color.Black,
+            fontWeight = FontWeight.Medium,
+            fontSize = 16.sp
+        )
+        Box(
+            modifier = Modifier
+                .background(MyBlue40, shape = RoundedCornerShape(24.dp))
+                .clickable { }
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .clickable { onClick() }
+        ) {
+            Text(text = "선택", color = Color.White, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
 fun BluetoothStatusBox(innerPadding: PaddingValues) {
     val context = LocalContext.current
     val bluetoothManager =
@@ -118,7 +178,7 @@ fun BluetoothStatusBox(innerPadding: PaddingValues) {
 
     // 기기 목록 로딩 상태 및 결과(간단히 이름만 저장)
     var loading by remember { mutableStateOf(false) }
-    var deviceNames by remember { mutableStateOf<List<String>>(emptyList()) }
+    var pairedDevices by remember { mutableStateOf<List<BluetoothDevice>>(emptyList()) }
 
     // 블루투스 상태 변경 수신기 등록/해제
     DisposableEffect(context, adapter) {
@@ -148,28 +208,24 @@ fun BluetoothStatusBox(innerPadding: PaddingValues) {
 
             if (!hasConnectPermission) {
                 // 권한이 없으면 목록을 못 불러오니 빈 상태로 유지
-                deviceNames = emptyList()
+                pairedDevices = emptyList()
                 loading = false
             } else {
                 loading = true
                 // 실제 IO는 IO 디스패처에서 처리 (bondedDevices 접근 등)
                 val list = withContext(Dispatchers.IO) {
                     try {
-                        adapter?.bondedDevices
-                            ?.mapNotNull { d: BluetoothDevice ->
-                                d.name ?: d.address
-                            }
-                            ?: emptyList()
+                        adapter?.bondedDevices?.toList() ?: emptyList()
                     } catch (e: SecurityException) {
                         emptyList()
                     }
                 }
-                deviceNames = list
+                pairedDevices = list
                 loading = false
             }
         } else {
             // 블루투스가 꺼져 있을 때 초기화
-            deviceNames = emptyList()
+            pairedDevices = emptyList()
             loading = false
         }
     }
@@ -199,7 +255,7 @@ fun BluetoothStatusBox(innerPadding: PaddingValues) {
                     textAlign = TextAlign.Center
                 )
             }
-            deviceNames.isEmpty() -> {
+            pairedDevices.isEmpty() -> {
                 Text(
                     text = "페어링된 기기가 없습니다.",
                     fontSize = 16.sp,
@@ -208,14 +264,170 @@ fun BluetoothStatusBox(innerPadding: PaddingValues) {
                 )
             }
             else -> {
-                // 간단히 첫 번째 기기 이름만 표시 예시 — 필요하면 LazyColumn으로 목록을 보여줘
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MyGray80) // 전체 바 배경 (필요없으면 제거)
+                        .navigationBarsPadding()
+                ) {
+                    pairedDevices.forEach { device -> // deviceNames 배열을 순회
+                        BluetoothDeviceElement(
+                            name = device.name, // 각 기기 이름을 전달
+                            modifier = Modifier
+                                .padding(10.dp),
+                            onClick = { ConnectToDevice(context, device) }
+                        )
+                    }
+                }
+                /*
                 Text(
                     text = "연결 가능한 기기 예시:\n" + deviceNames.joinToString("\n"),
                     fontSize = 14.sp,
                     color = Color.Black,
                     textAlign = TextAlign.Center
-                )
+                )*/
             }
+        }
+    }
+}
+
+
+
+@RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+fun ConnectToDevice(context: Context, device: BluetoothDevice) {
+    Toast.makeText(context, "연결시도", Toast.LENGTH_SHORT).show()
+
+    // 권한 재확인 (Android S 이상)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val has = ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) ==
+                PermissionChecker.PERMISSION_GRANTED
+        if (!has) {
+            // 권한이 없으면 UI에 알려주고 종료 (또는 권한 요청 트리거)
+            Handler(Looper.getMainLooper()).post {
+                Toast.makeText(context, "BLUETOOTH_CONNECT 권한이 필요합니다.", Toast.LENGTH_LONG).show()
+            }
+            return
+        }
+    }
+
+    CoroutineScope(Dispatchers.IO).launch {
+        try {
+            // 기존 소켓 정리
+            try {
+                bluetoothSocket?.close()
+            } catch (_: Exception) {}
+
+            // 기본 RFCOMM 소켓 생성 시도
+            try {
+                bluetoothSocket = device.createRfcommSocketToServiceRecord(MY_UUID)
+                bluetoothSocket?.connect()
+            } catch (e1: Exception) {
+                // 1차 실패 시 대안 시도 (reflection)
+                try {
+                    val m = device.javaClass.getMethod("createRfcommSocket", Int::class.javaPrimitiveType)
+                    bluetoothSocket = m.invoke(device, 1) as BluetoothSocket
+                    bluetoothSocket?.connect()
+                } catch (e2: Exception) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "연결 실패: ${e2.message ?: "오류"}", Toast.LENGTH_LONG).show()
+                    }
+                    // 정리
+                    try { bluetoothSocket?.close() } catch (_: Exception) {}
+                    bluetoothSocket = null
+                    return@launch
+                }
+            }
+
+            // 연결 성공 시 스트림 설정
+            try {
+                inputStream = bluetoothSocket?.inputStream
+                outputStream = bluetoothSocket?.outputStream
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "스트림 획득 실패: ${e.message ?: "오류"}", Toast.LENGTH_LONG).show()
+                }
+                try { bluetoothSocket?.close() } catch (_: Exception) {}
+                bluetoothSocket = null
+                return@launch
+            }
+
+            // beginListenForData 호출은 반드시 예외 처리로 감싸서 앱 크래시 방지
+            try {
+                beginListenForData(context) // 변경: context 전달
+            } catch (e: Exception) {
+                // 읽기 루프 관련 예외 처리
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "데이터 수신 루프 시작 실패: ${e.message ?: "오류"}", Toast.LENGTH_LONG).show()
+                }
+            }
+
+            // UI 업데이트
+            withContext(Dispatchers.Main) {
+                updateUiOnConnect(device.name ?: "알 수 없음")
+                Toast.makeText(context, "연결완료. 적재 시작 버튼을 눌러주세요.", Toast.LENGTH_SHORT).show()
+            }
+
+        } catch (secEx: SecurityException) {
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "권한 오류: ${secEx.message}", Toast.LENGTH_LONG).show()
+            }
+        } catch (ioe: IOException) {
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "IO 오류: ${ioe.message}", Toast.LENGTH_LONG).show()
+            }
+        } catch (t: Throwable) {
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "알 수 없는 오류: ${t.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+}
+
+private fun CoroutineScope.updateUiOnConnect(name: String) {}
+
+private fun beginListenForData(context: Context) {
+    // 안전하게 초기 조건 검사
+    val inStream = inputStream ?: throw IllegalStateException("inputStream is null")
+    CoroutineScope(Dispatchers.IO).launch {
+        val buffer = ByteArray(1024)
+        while (isActive) {
+            try {
+                val bytesRead = inStream.read(buffer)
+                if (bytesRead > 0) {
+                    val data = String(buffer, 0, bytesRead) // 인코딩에 맞춰 수정 가능
+                    // 메인 스레드에서 UI 처리
+                    withContext(Dispatchers.Main) {
+                        // 예: 토스트(디버깅용). 실제 앱에서는 로그나 화면에 작게 표시하세요.
+                        Toast.makeText(context, "수신: $data", Toast.LENGTH_SHORT).show()
+                    }
+                } else if (bytesRead == -1) {
+                    // 스트림 종료
+                    break
+                }
+            } catch (e: IOException) {
+                // 연결 끊김 등
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "데이터 수신 중 오류: ${e.message ?: "IO 오류"}", Toast.LENGTH_LONG).show()
+                }
+                break
+            } catch (t: Throwable) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "수신 루프 예외: ${t.message ?: "오류"}", Toast.LENGTH_LONG).show()
+                }
+                break
+            }
+        }
+
+        // 루프 빠져나오면 소켓/스트림 정리
+        try { inStream.close() } catch (_: Exception) {}
+        try { outputStream?.close() } catch (_: Exception) {}
+        try { bluetoothSocket?.close() } catch (_: Exception) {}
+        inputStream = null
+        outputStream = null
+        bluetoothSocket = null
+
+        withContext(Dispatchers.Main) {
+            Toast.makeText(context, "수신 루프 종료", Toast.LENGTH_SHORT).show()
         }
     }
 }
