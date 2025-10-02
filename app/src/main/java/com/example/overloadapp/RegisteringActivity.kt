@@ -15,7 +15,6 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
-
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -24,14 +23,35 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresPermission
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -43,24 +63,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.content.PermissionChecker
-
-import com.example.overloadapp.ui.theme.MyOrange40
 import com.example.overloadapp.ui.theme.MyBlue40
 import com.example.overloadapp.ui.theme.MyBlue80
-import com.example.overloadapp.ui.theme.MyGray40
 import com.example.overloadapp.ui.theme.MyGray80
+import com.example.overloadapp.ui.theme.MyOrange40
 import com.example.overloadapp.ui.theme.OverloadAppTheme
-
-import java.io.IOException
-import java.io.InputStream
-import java.io.OutputStream
-import java.util.UUID
-
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
+import java.util.UUID
 
 
 var bluetoothSocket: BluetoothSocket? = null
@@ -344,7 +360,7 @@ fun connectToDevice(context: Context, device: BluetoothDevice) {
             // UI 업데이트
             withContext(Dispatchers.Main) {
                 updateUiOnConnect(device.name ?: "알 수 없음")
-                Toast.makeText(context, "연결완료. 적재 시작 버튼을 눌러주세요.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "연결완료. 데이터 수신을 시작합니다.", Toast.LENGTH_SHORT).show()
             }
 
         } catch (secEx: SecurityException) {
@@ -366,26 +382,42 @@ fun connectToDevice(context: Context, device: BluetoothDevice) {
 private fun CoroutineScope.updateUiOnConnect(name: String) {}
 
 private fun beginListenForData(context: Context) {
-    // 안전하게 초기 조건 검사
     val inStream = inputStream ?: throw IllegalStateException("inputStream is null")
     CoroutineScope(Dispatchers.IO).launch {
         val buffer = ByteArray(1024)
+        var leftover = ByteArray(0) // 이전에 읽은 데이터 중 아직 22바이트가 안 된 남은 부분
+
         while (isActive) {
             try {
                 val bytesRead = inStream.read(buffer)
+                if (bytesRead == -1) break // 스트림 종료
+
                 if (bytesRead > 0) {
-                    val data = String(buffer, 0, bytesRead) // 인코딩에 맞춰 수정 가능
-                    // 메인 스레드에서 UI 처리
-                    withContext(Dispatchers.Main) {
-                        // 예: 토스트(디버깅용). 실제 앱에서는 로그나 화면에 작게 표시하세요.
-                        Toast.makeText(context, "수신: $data", Toast.LENGTH_SHORT).show()
+                    // 새로 읽은 데이터 + 이전 남은 데이터 합치기
+                    val newData = leftover + buffer.copyOfRange(0, bytesRead)
+
+                    var offset = 0
+                    while (offset + 22 <= newData.size) {
+                        val slice = newData.copyOfRange(offset, offset + 22)
+                        val sensor = sliceData(slice)
+                        withContext(Dispatchers.Main) {
+                            if (sensor != null) {
+                                Toast.makeText(context, "Top Left: ${sensor.distTL}", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "잘못된 데이터 수신", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        offset += 22
                     }
-                } else if (bytesRead == -1) {
-                    // 스트림 종료
-                    break
+
+                    // 22바이트로 나눠지지 않고 남은 데이터는 다음 루프에서 이어서 처리
+                    leftover = if (offset < newData.size) {
+                        newData.copyOfRange(offset, newData.size)
+                    } else {
+                        ByteArray(0)
+                    }
                 }
             } catch (e: IOException) {
-                // 연결 끊김 등
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "데이터 수신 중 오류: ${e.message ?: "IO 오류"}", Toast.LENGTH_LONG).show()
                 }
@@ -398,7 +430,7 @@ private fun beginListenForData(context: Context) {
             }
         }
 
-        // 루프 빠져나오면 소켓/스트림 정리
+        // 루프 종료 시 정리
         try { inStream.close() } catch (_: Exception) {}
         try { outputStream?.close() } catch (_: Exception) {}
         try { bluetoothSocket?.close() } catch (_: Exception) {}
@@ -410,6 +442,48 @@ private fun beginListenForData(context: Context) {
             Toast.makeText(context, "수신 루프 종료", Toast.LENGTH_SHORT).show()
         }
     }
+}
+
+
+private class SensorData {
+    var distTL: Int = 0
+    var distTR: Int = 0
+    var distBL: Int = 0
+    var distBR: Int = 0
+    var state: Int = 0
+    var tempTR: Int = 0
+    var tempBL: Int = 0
+    var tempBR: Int = 0
+    var accelX: Byte = 0
+    var accelY: Byte = 0
+    var accelZ: Byte = 0
+    var slope: Int = 0
+    var tempIMU: Int = 0
+    var weight: Int = 0
+}
+
+private fun sliceData(data: ByteArray): SensorData? {
+    if (data.size != 22) return null
+    if (data[20] != 13.toByte() || data[21] != 10.toByte()) return null
+
+    val sensorData = SensorData()
+
+    sensorData.distTL = ((data[1].toInt() and 0xFF) shl 8) or (data[0].toInt() and 0xFF)
+    sensorData.state = data[2].toInt() and 0xFF
+    sensorData.distTR = ((data[4].toInt() and 0xFF) shl 8) or (data[3].toInt() and 0xFF)
+    sensorData.tempTR = data[5].toInt() and 0xFF
+    sensorData.distBL = ((data[7].toInt() and 0xFF) shl 8) or (data[6].toInt() and 0xFF)
+    sensorData.tempBL = data[8].toInt() and 0xFF
+    sensorData.distBR = ((data[10].toInt() and 0xFF) shl 8) or (data[9].toInt() and 0xFF)
+    sensorData.tempBR = data[11].toInt() and 0xFF
+    sensorData.accelX = data[12]
+    sensorData.accelY = data[13]
+    sensorData.accelZ = data[14]
+    sensorData.slope = ((data[16].toInt() and 0xFF) shl 8) or (data[15].toInt() and 0xFF)
+    sensorData.tempIMU = data[17].toInt() and 0xFF
+    sensorData.weight = ((data[19].toInt() and 0xFF) shl 8) or (data[18].toInt() and 0xFF)
+
+    return sensorData
 }
 
 @Composable
