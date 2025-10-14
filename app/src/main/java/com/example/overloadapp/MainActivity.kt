@@ -56,6 +56,7 @@ import com.example.overloadapp.ui.theme.MyBlue40
 import com.example.overloadapp.ui.theme.MyBlue80
 import com.example.overloadapp.ui.theme.MyGray40
 import com.example.overloadapp.ui.theme.MyGray80
+import com.example.overloadapp.BluetoothManager as MyBluetoothManager
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,21 +74,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MyAppContent() {
     val context = LocalContext.current
-    var connectedDeviceName by remember { mutableStateOf<String?>(null) }
-
-    // RegisteringActivity 결과를 받을 런처
-    val registeringLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            // 결과가 성공적으로 돌아왔을 경우, Intent에서 데이터 추출
-            val deviceName = result.data?.getStringExtra("BLUETOOTH_DEVICE_NAME")
-            if (deviceName != null) {
-                // 상태 변수 업데이트
-                connectedDeviceName = deviceName
-            }
-        }
-    }
+    // BluetoothManager 싱글톤 객체의 상태를 직접 참조
+    val connectedDeviceName by remember { MyBluetoothManager.connectedDeviceName }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -117,7 +105,8 @@ fun MyAppContent() {
                 .padding(innerPadding)
                 .background(MyGray80),
         ) {
-            ProfileSection(connectedDeviceName, registeringLauncher)
+            // connectedDeviceName 상태를 ProfileSection으로 전달
+            ProfileSection(connectedDeviceName)
             Spacer(modifier = Modifier.height(16.dp))
             RecentHistorySection()
         }
@@ -125,9 +114,7 @@ fun MyAppContent() {
 }
 
 @Composable
-fun ProfileSection(connectedDeviceName: String?,
-                   registeringLauncher: ManagedActivityResultLauncher<Intent, ActivityResult>
-) {
+fun ProfileSection(connectedDeviceName: String?) {
     val context = LocalContext.current
     Column(
         modifier = Modifier
@@ -168,7 +155,7 @@ fun ProfileSection(connectedDeviceName: String?,
                     .background(MyBlue40, shape = RoundedCornerShape(24.dp))
                     .clickable {
                         val intent = Intent(context, RegisteringActivity::class.java)
-                        registeringLauncher.launch(intent)
+                        context.startActivity(intent)
                     }
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             ) {

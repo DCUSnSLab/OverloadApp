@@ -1,60 +1,52 @@
 package com.example.overloadapp
 
+import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import android.content.Intent
-import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.platform.LocalContext
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-import com.example.overloadapp.ui.theme.OverloadAppTheme
-import com.example.overloadapp.ui.theme.MyOrange40
-import com.example.overloadapp.ui.theme.MyBlue40
+import com.example.overloadapp.BluetoothManager as MyBluetoothManager
 import com.example.overloadapp.ui.theme.MyBlue80
-import com.example.overloadapp.ui.theme.MyGray40
-import com.example.overloadapp.ui.theme.MyGray80
+import com.example.overloadapp.ui.theme.MyOrange40
+import com.example.overloadapp.ui.theme.OverloadAppTheme
 
 class DrivingActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -72,13 +64,8 @@ class DrivingActivity : ComponentActivity() {
 @Composable
 fun DrivingScreen() {
     val context = LocalContext.current
-    val activity = context as? ComponentActivity
-    val deviceName = activity?.intent?.getStringExtra("BLUETOOTH_DEVICE_NAME") ?: "연결 정보 없음"
-
-    LaunchedEffect(Unit) {
-        Toast.makeText(context, "연결된 모듈 이름: $deviceName", Toast.LENGTH_LONG).show()
-    }
-
+    // BluetoothManager 싱글톤 객체의 상태를 직접 참조
+    val connectedDeviceName by remember { MyBluetoothManager.connectedDeviceName }
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -90,8 +77,8 @@ fun DrivingScreen() {
                 navigationIcon = {
                     IconButton(onClick = {
                         // 뒤로가기
-                        val intent = Intent(context, MainActivity::class.java)
-                        context.startActivity(intent) }) {
+                        (context as? Activity)?.finish() // 현재 액티비티를 종료
+                    }) {
                         Icon(
                             imageVector = Icons.Filled.ArrowBack,
                             contentDescription = "뒤로가기",
@@ -116,7 +103,7 @@ fun DrivingScreen() {
                 containerColor = MyOrange40,
             ) {
                 Text(text = "화물 추가", color = Color.White)
-                Spacer(modifier = Modifier.width(8.dp)) // 아이콘과 텍스트 사이 간격 추가
+                Spacer(modifier = Modifier.width(8.dp))
                 Icon(
                     imageVector = Icons.Filled.Add,
                     contentDescription = "추가",
@@ -132,9 +119,9 @@ fun DrivingScreen() {
         ) {
             item {
                 // 상단 확장 가능한 헤더
-                MyTopHeader(connectedDeviceName = deviceName)
+                // connectedDeviceName을 매개변수로 전달
+                MyTopHeader(connectedDeviceName = connectedDeviceName ?: "연결 정보 없음")
             }
-            // 스크롤 가능한 콘텐츠
             items(20) { index ->
                 Text(
                     text = "스크롤 가능한 아이템 $index",
@@ -142,7 +129,7 @@ fun DrivingScreen() {
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color.White) // 회색 배경
+                        .background(Color.White)
                         .padding(vertical = 8.dp)
                 )
             }
@@ -150,18 +137,15 @@ fun DrivingScreen() {
     }
 }
 
-
-
 @Composable
-fun MyTopHeader(connectedDeviceName: String = "머임") {
+fun MyTopHeader(connectedDeviceName: String) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(200.dp) // 높이를 조절하여 3분의 1 크기처럼 보이게 합니다.
+            .height(200.dp)
             .background(MyBlue80),
         contentAlignment = Alignment.Center
     ) {
-        // 이미지나 다른 콘텐츠를 여기에 배치
         Text(text = connectedDeviceName, color = Color.White, fontSize = 24.sp)
     }
 }
