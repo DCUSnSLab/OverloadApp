@@ -1,5 +1,6 @@
 package com.example.overloadapp
 
+import android.Manifest
 import android.app.Activity
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -10,6 +11,7 @@ import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresPermission
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -33,6 +35,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,7 +61,9 @@ import com.example.overloadapp.ui.theme.MyGray40
 import com.example.overloadapp.ui.theme.MyGray80
 import com.example.overloadapp.BluetoothManager as MyBluetoothManager
 
+
 class MainActivity : ComponentActivity() {
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -70,12 +75,22 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyAppContent() {
     val context = LocalContext.current
     // BluetoothManager 싱글톤 객체의 상태를 직접 참조
     val connectedDeviceName by remember { MyBluetoothManager.connectedDeviceName }
+
+    // 이 부분이 수정된 코드입니다.
+    // MainActivity가 시작될 때 자동 연결을 시도합니다.
+    LaunchedEffect(Unit) {
+        MyBluetoothManager.initialize(context)
+        if (MyBluetoothManager.isBluetoothEnabled.value) {
+            MyBluetoothManager.connectToRememberedDevice(context)
+        }
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -273,6 +288,7 @@ fun MainBottomBar() {
     }
 }
 
+@RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
 @Preview(showBackground = true)
 @Composable
 fun AppPreview() {

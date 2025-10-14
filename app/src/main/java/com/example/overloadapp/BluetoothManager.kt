@@ -33,6 +33,9 @@ import kotlinx.coroutines.flow.asStateFlow
 
 object BluetoothManager {
 
+    // 하드코딩된 타겟 디바이스 이름(DB가 없어서 하드코딩으로 대체)
+    private const val TARGET_DEVICE_NAME = "=BLTEST"
+
     // 블루투스 켜짐/꺼짐 상태를 나타내는 변수
     val isBluetoothEnabled = mutableStateOf(false)
 
@@ -53,11 +56,15 @@ object BluetoothManager {
     private val myUuid: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 
     // 초기화
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun initialize(context: Context) {
         val manager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         bluetoothAdapter = manager.adapter
-        if (bluetoothAdapter == null) {
-            Toast.makeText(context, "블루투스를 지원하지 않는 기기입니다.", Toast.LENGTH_LONG).show()
+        isBluetoothEnabled.value = bluetoothAdapter?.isEnabled == true
+
+        // **여기서 자동 연결 로직을 추가합니다.**
+        if (isBluetoothEnabled.value) {
+            connectToRememberedDevice(context)
         }
     }
 
@@ -80,12 +87,17 @@ object BluetoothManager {
                     connectedDeviceName.value = device.name ?: device.address
                     Toast.makeText(context, "연결 성공: ${connectedDeviceName.value}", Toast.LENGTH_SHORT).show()
 
-                    // 연결 성공 후 DrivingActivity로 이동
-                    val intent = Intent(context, DrivingActivity::class.java).apply {
-                        putExtra("BLUETOOTH_DEVICE_NAME", connectedDeviceName.value)
+                    // 이미 MainActivity라면 이동하지 않음
+                    if (context !is MainActivity) {
+                        val intent = Intent(context, MainActivity::class.java).apply {
+                            putExtra("BLUETOOTH_DEVICE_NAME", connectedDeviceName.value)
+                        }
+                        context.startActivity(intent)
+                        (context as? Activity)?.finish() // 현재 액티비티 종료 (예: RegisteringActivity)
+                    } else {
+                        // 이미 MainActivity라면 화면 이동 없이 상태만 갱신
+                        Log.d("BluetoothManager", "이미 MainActivity에 있음 — 화면 이동 생략")
                     }
-                    context.startActivity(intent)
-                    (context as? Activity)?.finish() // RegisteringActivity 종료
                 }
 
             } catch (e: IOException) {
@@ -240,6 +252,15 @@ object BluetoothManager {
                     isLoading.value = false
                 }
             }
+        }
+    }
+
+    // 새 메소드: 기억된 디바이스에 연결 시도
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    fun connectToRememberedDevice(context: Context) {
+        val pairedDevices: Set<BluetoothDevice>? = bluetoothAdapter?.bondedDevices
+        pairedDevices?.firstOrNull { it.name == TARGET_DEVICE_NAME }?.let { targetDevice ->
+            connectToDevice(context, targetDevice)
         }
     }
 }
