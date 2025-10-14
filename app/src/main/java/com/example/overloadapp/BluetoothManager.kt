@@ -34,7 +34,7 @@ import kotlinx.coroutines.flow.asStateFlow
 object BluetoothManager {
 
     // 하드코딩된 타겟 디바이스 이름(DB가 없어서 하드코딩으로 대체)
-    private const val TARGET_DEVICE_NAME = "=BLTEST"
+    private const val TARGET_DEVICE_NAME = "None" // "=BLTEST"
 
     // 블루투스 켜짐/꺼짐 상태를 나타내는 변수
     val isBluetoothEnabled = mutableStateOf(false)
