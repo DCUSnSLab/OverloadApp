@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import android.content.Intent
+import android.widget.Toast
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -38,6 +39,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -70,6 +72,13 @@ class DrivingActivity : ComponentActivity() {
 @Composable
 fun DrivingScreen() {
     val context = LocalContext.current
+    val activity = context as? ComponentActivity
+    val deviceName = activity?.intent?.getStringExtra("BLUETOOTH_DEVICE_NAME") ?: "연결 정보 없음"
+
+    LaunchedEffect(Unit) {
+        Toast.makeText(context, "연결된 모듈 이름: $deviceName", Toast.LENGTH_LONG).show()
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -123,7 +132,7 @@ fun DrivingScreen() {
         ) {
             item {
                 // 상단 확장 가능한 헤더
-                MyTopHeader()
+                MyTopHeader(connectedDeviceName = deviceName)
             }
             // 스크롤 가능한 콘텐츠
             items(20) { index ->
@@ -141,8 +150,10 @@ fun DrivingScreen() {
     }
 }
 
+
+
 @Composable
-fun MyTopHeader() {
+fun MyTopHeader(connectedDeviceName: String = "머임") {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -151,7 +162,7 @@ fun MyTopHeader() {
         contentAlignment = Alignment.Center
     ) {
         // 이미지나 다른 콘텐츠를 여기에 배치
-        Text(text = "?", color = Color.White, fontSize = 24.sp)
+        Text(text = connectedDeviceName, color = Color.White, fontSize = 24.sp)
     }
 }
 
