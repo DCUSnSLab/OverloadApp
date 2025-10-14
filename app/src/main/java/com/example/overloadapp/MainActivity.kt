@@ -1,10 +1,15 @@
 package com.example.overloadapp
 
+import android.app.Activity
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import android.content.Intent
+import androidx.activity.compose.ManagedActivityResultLauncher
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.ActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -28,6 +33,10 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -63,6 +72,23 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyAppContent() {
+    val context = LocalContext.current
+    var connectedDeviceName by remember { mutableStateOf<String?>(null) }
+
+    // RegisteringActivity 결과를 받을 런처
+    val registeringLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            // 결과가 성공적으로 돌아왔을 경우, Intent에서 데이터 추출
+            val deviceName = result.data?.getStringExtra("BLUETOOTH_DEVICE_NAME")
+            if (deviceName != null) {
+                // 상태 변수 업데이트
+                connectedDeviceName = deviceName
+            }
+        }
+    }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
@@ -91,7 +117,7 @@ fun MyAppContent() {
                 .padding(innerPadding)
                 .background(MyGray80),
         ) {
-            ProfileSection()
+            ProfileSection(connectedDeviceName, registeringLauncher)
             Spacer(modifier = Modifier.height(16.dp))
             RecentHistorySection()
         }
@@ -99,7 +125,9 @@ fun MyAppContent() {
 }
 
 @Composable
-fun ProfileSection() {
+fun ProfileSection(connectedDeviceName: String?,
+                   registeringLauncher: ManagedActivityResultLauncher<Intent, ActivityResult>
+) {
     val context = LocalContext.current
     Column(
         modifier = Modifier
@@ -125,7 +153,11 @@ fun ProfileSection() {
 
             Column {
                 Text(text = "홍길동 님", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Text(text = "차량 등록 필요", fontWeight = FontWeight.Bold, color = MyOrange40)
+                if (connectedDeviceName != null) {
+                    Text(text = connectedDeviceName, fontWeight = FontWeight.Bold, color = MyOrange40)
+                } else {
+                    Text(text = "차량 등록 필요", fontWeight = FontWeight.Bold, color = MyOrange40)
+                }
             }
 
             Spacer(modifier = Modifier.weight(0.5f))
@@ -136,7 +168,7 @@ fun ProfileSection() {
                     .background(MyBlue40, shape = RoundedCornerShape(24.dp))
                     .clickable {
                         val intent = Intent(context, RegisteringActivity::class.java)
-                        context.startActivity(intent)
+                        registeringLauncher.launch(intent)
                     }
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             ) {

@@ -360,11 +360,12 @@ fun connectToDevice(context: Context, device: BluetoothDevice) {
             // UI 업데이트
             withContext(Dispatchers.Main) {
                 val deviceName = device.name ?: device.address
-                val intent = Intent(context, DrivingActivity::class.java).apply {
+                val intent = Intent(context, MainActivity::class.java).apply {
                     putExtra("BLUETOOTH_DEVICE_NAME", deviceName)
                 }
+                (context as? Activity)?.setResult(Activity.RESULT_OK, intent)
                 updateUiOnConnect(device.name ?: "알 수 없음")
-                context.startActivity(intent)
+                (context as? Activity)?.finish()
                 Toast.makeText(context, "연결완료. 데이터 수신을 시작합니다.", Toast.LENGTH_SHORT).show()
             }
 
