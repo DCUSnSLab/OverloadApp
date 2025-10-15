@@ -1,10 +1,17 @@
 package com.example.overloadapp
 
+import android.Manifest
+import android.app.Activity
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import android.content.Intent
+import androidx.activity.compose.ManagedActivityResultLauncher
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.ActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresPermission
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -28,6 +35,11 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -47,8 +59,11 @@ import com.example.overloadapp.ui.theme.MyBlue40
 import com.example.overloadapp.ui.theme.MyBlue80
 import com.example.overloadapp.ui.theme.MyGray40
 import com.example.overloadapp.ui.theme.MyGray80
+import com.example.overloadapp.BluetoothManager as MyBluetoothManager
+
 
 class MainActivity : ComponentActivity() {
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -60,9 +75,23 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyAppContent() {
+    val context = LocalContext.current
+    // BluetoothManager 싱글톤 객체의 상태를 직접 참조
+    val connectedDeviceName by remember { MyBluetoothManager.connectedDeviceName }
+
+    // 이 부분이 수정된 코드입니다.
+    // MainActivity가 시작될 때 자동 연결을 시도합니다.
+    LaunchedEffect(Unit) {
+        MyBluetoothManager.initialize(context)
+        if (MyBluetoothManager.isBluetoothEnabled.value) {
+            MyBluetoothManager.connectToRememberedDevice(context)
+        }
+    }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
@@ -91,7 +120,8 @@ fun MyAppContent() {
                 .padding(innerPadding)
                 .background(MyGray80),
         ) {
-            ProfileSection()
+            // connectedDeviceName 상태를 ProfileSection으로 전달
+            ProfileSection(connectedDeviceName)
             Spacer(modifier = Modifier.height(16.dp))
             RecentHistorySection()
         }
@@ -99,7 +129,7 @@ fun MyAppContent() {
 }
 
 @Composable
-fun ProfileSection() {
+fun ProfileSection(connectedDeviceName: String?) {
     val context = LocalContext.current
     Column(
         modifier = Modifier
@@ -125,7 +155,11 @@ fun ProfileSection() {
 
             Column {
                 Text(text = "홍길동 님", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Text(text = "차량 등록 필요", fontWeight = FontWeight.Bold, color = MyOrange40)
+                if (connectedDeviceName != null) {
+                    Text(text = connectedDeviceName, fontWeight = FontWeight.Bold, color = MyOrange40)
+                } else {
+                    Text(text = "차량 등록 필요", fontWeight = FontWeight.Bold, color = MyOrange40)
+                }
             }
 
             Spacer(modifier = Modifier.weight(0.5f))
@@ -254,6 +288,7 @@ fun MainBottomBar() {
     }
 }
 
+@RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
 @Preview(showBackground = true)
 @Composable
 fun AppPreview() {
