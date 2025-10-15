@@ -32,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -66,6 +67,7 @@ fun DrivingScreen() {
     val context = LocalContext.current
     // BluetoothManager 싱글톤 객체의 상태를 직접 참조
     val connectedDeviceName by remember { MyBluetoothManager.connectedDeviceName }
+    val sensorData by MyBluetoothManager.sensorData.collectAsState()
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -122,9 +124,9 @@ fun DrivingScreen() {
                 // connectedDeviceName을 매개변수로 전달
                 MyTopHeader(connectedDeviceName = connectedDeviceName ?: "연결 정보 없음")
             }
-            items(20) { index ->
+            items(1) { index ->
                 Text(
-                    text = "스크롤 가능한 아이템 $index",
+                    text = "추정 무게: ${sensorData?.weight ?: "---"} kg",
                     color = Color.Black,
                     textAlign = TextAlign.Center,
                     modifier = Modifier

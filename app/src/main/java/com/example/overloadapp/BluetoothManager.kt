@@ -8,7 +8,6 @@ import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothSocket
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresPermission
@@ -24,9 +23,6 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.util.*
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.graphics.Color
-import com.example.overloadapp.DrivingActivity
-import com.example.overloadapp.RegisteringActivity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,7 +30,14 @@ import kotlinx.coroutines.flow.asStateFlow
 object BluetoothManager {
 
     // 하드코딩된 타겟 디바이스 이름(DB가 없어서 하드코딩으로 대체)
-    private const val TARGET_DEVICE_NAME = "None" // "=BLTEST"
+    private const val TARGET_DEVICE_NAME = "=BLTEST"
+    const val STATE_INITIALIZING  = 0
+    const val STATE_SETTING_INITIAL_VALUES = 1
+    const val STATE_WAITING_FOR_LOADING = 2
+    const val STATE_LOADING_IN_PROGRESS = 3
+    const val STATE_STABILIZING = 4
+    const val STATE_ESTIMATING_WEIGHT = 5
+
 
     // 블루투스 켜짐/꺼짐 상태를 나타내는 변수
     val isBluetoothEnabled = mutableStateOf(false)
@@ -50,6 +53,10 @@ object BluetoothManager {
     private var bluetoothSocket: BluetoothSocket? = null
     private var inputStream: InputStream? = null
     private var outputStream: OutputStream? = null
+
+    // 센서 데이터를 UI에 전달하는 StateFlow
+    private val _sensorData = MutableStateFlow<SensorData?>(null)
+    val sensorData: StateFlow<SensorData?> = _sensorData.asStateFlow()
 
     // 데이터 수신을 위한 코루틴 Job
     private var workerJob: Job? = null
@@ -131,35 +138,49 @@ object BluetoothManager {
     // 데이터 수신 루프
     private fun beginListenForData() {
         workerJob = CoroutineScope(Dispatchers.IO).launch {
-            val inStream = inputStream ?: throw IllegalStateException("inputStream is null")
+            val inStream = inputStream ?: return@launch
             val buffer = ByteArray(1024)
-            var leftover = ByteArray(0) // 이전에 읽은 데이터 중 아직 22바이트가 안 된 남은 부분
+            var bytes: Int
+            val packet = ByteArray(22)
+            var packetPos = 0
 
             while (isActive) {
                 try {
-                    val bytesRead = inStream.read(buffer)
-                    if (bytesRead == -1) break
+                    bytes = inStream.read(buffer)
+                    if (bytes == -1) break
 
-                    if (bytesRead > 0) {
-                        val newData = leftover + buffer.copyOfRange(0, bytesRead)
-                        var offset = 0
-                        while (offset + 22 <= newData.size) {
-                            val slice = newData.copyOfRange(offset, offset + 22)
-                            val sensor = sliceData(slice)
-                            withContext(Dispatchers.Main) {
-                                // context가 필요하므로, 토스트 대신 로그로 대체
-                                if (sensor != null) {
-                                    Log.d("BluetoothManager", "Top Left: ${sensor.distTL}")
-                                } else {
-                                    Log.w("BluetoothManager", "잘못된 데이터 수신")
+                    if (bytes > 0) {
+                        for (i in 0 until bytes) {
+                            val b = buffer[i]
+                            if (b.toInt() == 13) {
+                                if (packetPos == 21) {
+                                    packet[20] = 13.toByte()
+                                    packet[21] = 10.toByte()
+                                    val sensor = sliceData(packet)
+                                    if (sensor != null) {
+                                        _sensorData.value = sensor // <-- 이 부분 수정: 데이터 방출
+                                        Log.d("BluetoothManager", "--- 센서 데이터 수신 ---")
+                                        Log.d("BluetoothManager", "Top Left 거리: ${sensor.distTL} mm")
+                                        Log.d("BluetoothManager", "적재 상태: ${sensor.loadState} C")
+                                        Log.d("BluetoothManager", "Top Right 거리: ${sensor.distTR} mm")
+                                        Log.d("BluetoothManager", "Top Right 온도: ${sensor.tempTR} C")
+                                        Log.d("BluetoothManager", "Bottom Left 거리: ${sensor.distBL} mm")
+                                        Log.d("BluetoothManager", "Bottom Left 온도: ${sensor.tempBL} C")
+                                        Log.d("BluetoothManager", "Bottom Right 거리: ${sensor.distBR} mm")
+                                        Log.d("BluetoothManager", "Bottom Right 온도: ${sensor.tempBR} C")
+                                        Log.d("BluetoothManager", "가속도(X, Y, Z): ${sensor.accelX}, ${sensor.accelY}, ${sensor.accelZ}")
+                                        Log.d("BluetoothManager", "경사각: ${sensor.slope} 도")
+                                        Log.d("BluetoothManager", "IMU 온도: ${sensor.tempIMU} C")
+                                        Log.d("BluetoothManager", "추정 무게: ${sensor.weight} kg")
+                                        Log.d("BluetoothManager", "---------------------")
+                                    } else {
+                                        Log.w("BluetoothManager", "잘못된 데이터 수신: 패킷 길이 또는 형식 오류")
+                                    }
                                 }
+                                packetPos = 0
+                            } else if (packetPos < 21) {
+                                packet[packetPos++] = b
                             }
-                            offset += 22
-                        }
-                        leftover = if (offset < newData.size) {
-                            newData.copyOfRange(offset, newData.size)
-                        } else {
-                            ByteArray(0)
                         }
                     }
                 } catch (e: IOException) {
@@ -192,47 +213,52 @@ object BluetoothManager {
     }
 
     private fun sliceData(data: ByteArray): SensorData? {
+
+        // 수신한 데이터의 유효성 검사(길이 및 끝마침표 유무)
         if (data.size != 22) return null
         if (data[20] != 13.toByte() || data[21] != 10.toByte()) return null
 
         val sensorData = SensorData()
 
-        sensorData.distTL = ((data[1].toInt() and 0xFF) shl 8) or (data[0].toInt() and 0xFF)
-        sensorData.state = data[2].toInt() and 0xFF
-        sensorData.distTR = ((data[4].toInt() and 0xFF) shl 8) or (data[3].toInt() and 0xFF)
-        sensorData.tempTR = data[5].toInt() and 0xFF
-        sensorData.distBL = ((data[7].toInt() and 0xFF) shl 8) or (data[6].toInt() and 0xFF)
-        sensorData.tempBL = data[8].toInt() and 0xFF
-        sensorData.distBR = ((data[10].toInt() and 0xFF) shl 8) or (data[9].toInt() and 0xFF)
-        sensorData.tempBR = data[11].toInt() and 0xFF
-        sensorData.accelX = data[12]
-        sensorData.accelY = data[13]
-        sensorData.accelZ = data[14]
-        sensorData.slope = ((data[16].toInt() and 0xFF) shl 8) or (data[15].toInt() and 0xFF)
-        sensorData.tempIMU = data[17].toInt() and 0xFF
-        sensorData.weight = ((data[19].toInt() and 0xFF) shl 8) or (data[18].toInt() and 0xFF)
+        sensorData.distTL = sensorData.u16(data[0], data[1])
+        sensorData.loadState = sensorData.u8(data[2])   // 당신의 tempTL state로 대체되었다
+        sensorData.distTR = sensorData.u16(data[3], data[4])
+        sensorData.tempTR = sensorData.u8(data[5])
+        sensorData.distBL = sensorData.u16(data[6], data[7])
+        sensorData.tempBL = sensorData.u8(data[8])
+        sensorData.distBR = sensorData.u16(data[9], data[10])
+        sensorData.tempBR = sensorData.u8(data[11])
+        sensorData.accelX = sensorData.u8(data[12])
+        sensorData.accelY = sensorData.u8(data[13])
+        sensorData.accelZ = sensorData.u8(data[14])
+        sensorData.slope = sensorData.u16(data[15], data[16])
+        sensorData.tempIMU = sensorData.u8(data[17])
+        sensorData.weight = sensorData.u16(data[18], data[19])
 
         return sensorData
     }
 
-    private class SensorData {
+    class SensorData {
         var distTL: Int = 0
+        var loadState: Int = 0
         var distTR: Int = 0
-        var distBL: Int = 0
-        var distBR: Int = 0
-        var state: Int = 0
         var tempTR: Int = 0
+        var distBL: Int = 0
         var tempBL: Int = 0
+        var distBR: Int = 0
         var tempBR: Int = 0
-        var accelX: Byte = 0
-        var accelY: Byte = 0
-        var accelZ: Byte = 0
+        var accelX: Int = 0
+        var accelY: Int = 0
+        var accelZ: Int = 0
         var slope: Int = 0
         var tempIMU: Int = 0
         var weight: Int = 0
+
+        val u8 = { b: Byte -> b.toInt() and 0xFF }  // 단일 byte를 부호 없는 값으로 변환하는 헬퍼 함수
+        val u16 = { low: Byte, high: Byte -> (u8(high) shl 8) or u8(low) }  // 2바이트 데이터를 부호 없는 16비트 정수로 변환 및 조합하는 헬퍼 함수
     }
 
-    // 새로운 함수 추가
+    // 연결된 디바이스 목록 불러오기
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun loadPairedDevices(context: Context) {
         isLoading.value = true
@@ -255,7 +281,7 @@ object BluetoothManager {
         }
     }
 
-    // 새 메소드: 기억된 디바이스에 연결 시도
+    // 기억된 디바이스에 연결 시도
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun connectToRememberedDevice(context: Context) {
         val pairedDevices: Set<BluetoothDevice>? = bluetoothAdapter?.bondedDevices
