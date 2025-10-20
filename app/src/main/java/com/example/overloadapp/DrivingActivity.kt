@@ -104,7 +104,7 @@ fun DrivingScreen() {
                 onClick = { /* FAB 클릭 동작 */ },
                 containerColor = MyOrange40,
             ) {
-                Text(text = "화물 추가", color = Color.White)
+                Text(text = "화물 수동 추가", color = Color.White)
                 Spacer(modifier = Modifier.width(8.dp))
                 Icon(
                     imageVector = Icons.Filled.Add,
@@ -122,7 +122,10 @@ fun DrivingScreen() {
             item {
                 // 상단 확장 가능한 헤더
                 // connectedDeviceName을 매개변수로 전달
-                MyTopHeader(connectedDeviceName = connectedDeviceName ?: "연결 정보 없음")
+                MyTopHeader(
+                    connectedDeviceName = connectedDeviceName ?: "연결 정보 없음",
+                    data = sensorData?.weight ?: 0
+                )
             }
             items(1) { index ->
                 Text(
@@ -140,7 +143,7 @@ fun DrivingScreen() {
 }
 
 @Composable
-fun MyTopHeader(connectedDeviceName: String) {
+fun MyTopHeader(connectedDeviceName: String, data: Int) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -148,7 +151,7 @@ fun MyTopHeader(connectedDeviceName: String) {
             .background(MyBlue80),
         contentAlignment = Alignment.Center
     ) {
-        Text(text = connectedDeviceName, color = Color.White, fontSize = 24.sp)
+        Text(text = "$connectedDeviceName : $data kg", color = Color.White, fontSize = 24.sp)
     }
 }
 
