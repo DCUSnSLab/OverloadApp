@@ -56,6 +56,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -66,6 +68,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.overloadapp.BluetoothManager as MyBluetoothManager
 import com.example.overloadapp.ui.theme.MyBlue80
+import com.example.overloadapp.ui.theme.MyGray40
+import com.example.overloadapp.ui.theme.MyGray80
 import com.example.overloadapp.ui.theme.MyOrange40
 import com.example.overloadapp.ui.theme.OverloadAppTheme
 import java.text.SimpleDateFormat
@@ -202,6 +206,9 @@ fun AddFreightDialog(
     var isDepartureExpanded by remember { mutableStateOf(false) }
     var isDestinationExpanded by remember { mutableStateOf(false) }
 
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
     val regions = listOf(
         "서울", "경기", "인천", "강원", "충북", "충남",
         "대전", "세종", "경북", "대구", "경남", "부산",
@@ -239,11 +246,11 @@ fun AddFreightDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                Text(
-                    text = "화주에게 청구되는 운임입니다.",
-                    fontSize = 14.sp,
-                    color = Color.Gray
-                )
+//                Text(
+//                    text = "화주에게 청구되는 운임입니다.",
+//                    fontSize = 14.sp,
+//                    color = Color.Gray
+//                )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -251,8 +258,8 @@ fun AddFreightDialog(
                 OutlinedTextField(
                     value = owner,
                     onValueChange = { owner = it },
-                    label = { Text("화주") },
-                    placeholder = { Text("화주명 또는 회사명") },
+                    label = { Text(text = "화주 입력", fontWeight = FontWeight.Bold) },
+                    placeholder = { Text(text = "화주명 또는 회사명", color = Color.LightGray) },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -263,8 +270,8 @@ fun AddFreightDialog(
                     OutlinedTextField(
                         value = departure,
                         onValueChange = { },
-                        label = { Text("출발지") },
-                        placeholder = { Text("지역 선택") },
+                        label = { Text(text = "출발지", fontWeight = FontWeight.Bold) },
+                        placeholder = { Text(text = "지역 선택", color = Color.LightGray) },
                         readOnly = true,
                         trailingIcon = {
                             IconButton(onClick = { isDepartureExpanded = !isDepartureExpanded }) {
@@ -299,8 +306,8 @@ fun AddFreightDialog(
                     OutlinedTextField(
                         value = destination,
                         onValueChange = { },
-                        label = { Text("목적지") },
-                        placeholder = { Text("지역 선택") },
+                        label = { Text(text = "목적지", fontWeight = FontWeight.Bold) },
+                        placeholder = { Text(text = "지역 선택", color = Color.LightGray) },
                         readOnly = true,
                         trailingIcon = {
                             IconButton(onClick = { isDestinationExpanded = !isDestinationExpanded }) {
@@ -333,20 +340,25 @@ fun AddFreightDialog(
                 // 중량 입력
                 OutlinedTextField(
                     value = weight,
-                    onValueChange = {
+                    onValueChange = { newValue ->
                         // 정수만 입력 가능하도록
-                        if (it.isEmpty() || it.all { char -> char.isDigit() }) {
-                            weight = it
+                        if (newValue.all { it.isDigit() }) {
+                            weight = newValue
                         }
                     },
-                    label = { Text("중량 (kg)") },
-                    placeholder = { Text("0") },
+                    label = { Text(text = "화물 중량 (kg)", fontWeight = FontWeight.Bold) },
+                    placeholder = { Text(text = "", color = Color.LightGray) },
+                    singleLine = true, // ← IME 동작 보장을 위해 singleLine 권장
                     keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number,
+                        keyboardType = KeyboardType.NumberPassword,
                         imeAction = ImeAction.Done
                     ),
                     keyboardActions = KeyboardActions(
-                        onDone = { /* 키보드 닫기 */ }
+                        onDone = {
+                            // 포커스 해제하고 키보드 숨기기 (둘 다 호출
+                            keyboardController?.hide()
+                            focusManager.clearFocus()
+                        }
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
