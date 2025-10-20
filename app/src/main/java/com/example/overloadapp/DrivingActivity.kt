@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,9 +19,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -49,6 +54,16 @@ import com.example.overloadapp.ui.theme.MyBlue80
 import com.example.overloadapp.ui.theme.MyOrange40
 import com.example.overloadapp.ui.theme.OverloadAppTheme
 
+data class Freight(
+    val owner: String,              // 화물주인 이름(또는 회사명)
+    val requestTime: String,        // 요청 시간 (YYYYMMDDHHmm)
+    val departure: String,          // 출발지 주소
+    val destination: String,        // 목적지 주소
+    val weight: Double,             // 화물 중량 (톤 단위)
+    val photoUri: String? = null,   // 화물 사진 (선택)
+    val cost: Int? = 0              // 화물 운송비
+)
+
 class DrivingActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -68,6 +83,27 @@ fun DrivingScreen() {
     // BluetoothManager 싱글톤 객체의 상태를 직접 참조
     val connectedDeviceName by remember { MyBluetoothManager.connectedDeviceName }
     val sensorData by MyBluetoothManager.sensorData.collectAsState()
+
+    val freightList = remember {    // 테스트용 화물 데이터
+        listOf(
+            Freight("삼성물류", "202410201430", "대구", "서울", 3.5),
+            Freight("현대운송", "202410201500", "경북", "부산", 2.8),
+            Freight("삼성물류", "202410201430", "대구", "서울", 3.5),
+            Freight("현대운송", "202410201500", "경북", "부산", 2.8),
+            Freight("삼성물류", "202410201430", "대구", "서울", 3.5),
+            Freight("현대운송", "202410201500", "경북", "부산", 2.8),
+            Freight("삼성물류", "202410201430", "대구", "서울", 3.5),
+            Freight("현대운송", "202410201500", "경북", "부산", 2.8),
+            Freight("삼성물류", "202410201430", "대구", "서울", 3.5),
+            Freight("현대운송", "202410201500", "경북", "부산", 2.8),
+            Freight("삼성물류", "202410201430", "대구", "서울", 3.5),
+            Freight("현대운송", "202410201500", "경북", "부산", 2.8),
+            Freight("삼성물류", "202410201430", "대구", "서울", 3.5),
+            Freight("현대운송", "202410201500", "경북", "부산", 2.8),
+            Freight("삼성물류", "202410201430", "대구", "서울", 3.5),
+            Freight("현대운송", "202410201500", "경북", "부산", 2.8)
+        )
+    }
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -127,15 +163,14 @@ fun DrivingScreen() {
                     data = sensorData?.weight ?: 0
                 )
             }
-            items(1) { index ->
-                Text(
-                    text = "추정 무게: ${sensorData?.weight ?: "---"} kg",
-                    color = Color.Black,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color.White)
-                        .padding(vertical = 8.dp)
+
+            items(freightList) { freight ->
+                MyFreight(
+                    freight = freight,
+                    onClick = {
+                        // 상세보기 화면으로 이동 등
+                        Toast.makeText(context, "${freight.owner} 클릭", Toast.LENGTH_SHORT).show()
+                    }
                 )
             }
         }
@@ -152,6 +187,57 @@ fun MyTopHeader(connectedDeviceName: String, data: Int) {
         contentAlignment = Alignment.Center
     ) {
         Text(text = "$connectedDeviceName : $data kg", color = Color.White, fontSize = 24.sp)
+    }
+}
+
+@Composable
+fun MyFreight(
+    freight: Freight,
+    onClick: (() -> Unit)? = null  // 클릭 시 상세보기용
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .background(Color.White, shape = RoundedCornerShape(12.dp))
+            .clickable(enabled = onClick != null) { onClick?.invoke() }
+            .padding(16.dp)
+    ) {
+        Column {
+            // 화물주인
+            Text(
+                text = freight.owner,
+                color = Color.Black,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 출발지 -> 목적지
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = freight.departure,
+                    color = MyBlue80,
+                    fontSize = 16.sp
+                )
+
+                Icon(
+                    imageVector = Icons.Filled.ArrowForward,
+                    contentDescription = "화살표",
+                    tint = Color.Gray,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+
+                Text(
+                    text = freight.destination,
+                    color = MyBlue80,
+                    fontSize = 16.sp
+                )
+            }
+        }
     }
 }
 
