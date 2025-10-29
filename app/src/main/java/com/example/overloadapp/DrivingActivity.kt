@@ -105,8 +105,38 @@ fun DrivingScreen() {
     val connectedDeviceName by remember { MyBluetoothManager.connectedDeviceName }
     val sensorData by MyBluetoothManager.sensorData.collectAsState()
 
+    // 현재 시간 포맷팅 헬퍼
+    val timeFormat = remember { SimpleDateFormat("yyyyMMddHHmm", Locale.getDefault()) }
+    val currentTime = remember { timeFormat.format(Date()) }
+
     // 화물 리스트 상태 관리
-    val freightList = remember { mutableStateListOf<Freight>() }
+    // val freightList = remember { mutableStateListOf<Freight>() }
+    val freightList = remember {
+        mutableStateListOf(
+            Freight(
+                owner = "CJ대한통운",
+                requestTime = currentTime,
+                departure = "서울",
+                destination = "부산",
+                weight = 1500
+            ),
+            Freight(
+                owner = "롯데택배",
+                requestTime = currentTime,
+                departure = "경기",
+                destination = "대전",
+                weight = 2800
+            ),
+            Freight(
+                owner = "한진택배",
+                requestTime = currentTime,
+                departure = "인천",
+                destination = "광주",
+                weight = 500
+            )
+        )
+    }
+    // ------------------------------------------
 
     // 모달 표시 상태
     var showAddFreightDialog by remember { mutableStateOf(false) }
