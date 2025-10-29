@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import android.content.Intent
+import android.widget.Toast
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResult
@@ -83,13 +84,52 @@ fun MyAppContent() {
     // BluetoothManager 싱글톤 객체의 상태를 직접 참조
     val connectedDeviceName by remember { MyBluetoothManager.connectedDeviceName }
 
-    // 이 부분이 수정된 코드입니다.
-    // MainActivity가 시작될 때 자동 연결을 시도합니다.
-    LaunchedEffect(Unit) {
-        MyBluetoothManager.initialize(context)
-        if (MyBluetoothManager.isBluetoothEnabled.value) {
-            MyBluetoothManager.connectToRememberedDevice(context)
+    // *****************************************************************
+    // 1. [여기에 권한 요청 런처를 정의해야 합니다.]
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions.entries.all { it.value }
+        if (granted) {
+            // 권한 허용 시 초기화 및 자동 연결 시도
+            MyBluetoothManager.initialize(context)
+            if (MyBluetoothManager.isBluetoothEnabled.value) {
+                MyBluetoothManager.connectToRememberedDevice(context)
+            }
+        } else {
+            //Toast.makeText(context, "블루투스 기능을 사용하려면 모든 권한이 필요합니다.", Toast.LENGTH_LONG).show()
         }
+    }
+    // *****************************************************************
+
+    LaunchedEffect(Unit) {
+        // *****************************************************************
+        // 2. [여기에 권한 확인 및 요청 로직을 추가해야 합니다.]
+        val permissionsToRequest = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            arrayOf(
+                Manifest.permission.BLUETOOTH_CONNECT,
+                Manifest.permission.BLUETOOTH_SCAN,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            )
+        } else {
+            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+
+        val allPermissionsGranted = permissionsToRequest.all {
+            androidx.core.content.ContextCompat.checkSelfPermission(context, it) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+
+        if (allPermissionsGranted) {
+            // 권한이 있다면 바로 초기화 및 자동 연결 시도
+            MyBluetoothManager.initialize(context)
+            if (MyBluetoothManager.isBluetoothEnabled.value) {
+                MyBluetoothManager.connectToRememberedDevice(context)
+            }
+        } else {
+            // 권한이 없다면 런처를 실행하여 요청 모달창을 띄웁니다.
+            permissionLauncher.launch(permissionsToRequest)
+        }
+        // *****************************************************************
     }
 
     Scaffold(
