@@ -16,17 +16,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.OverloadApp">
         <activity
-            android:name=".DebuggingActivity"
-            android:exported="true"
-            android:label="@string/title_activity_debugging"
-            android:theme="@style/Theme.OverloadApp">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-        <activity
             android:name=".RegisteringActivity"
             android:exported="false"
             android:label="@string/title_activity_registering"
@@ -39,11 +28,10 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:label="@string/app_name"
+            android:label="@string/title_activity_main"
             android:theme="@style/Theme.OverloadApp">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
