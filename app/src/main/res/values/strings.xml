@@ -1,6 +1,6 @@
 <resources>
     <!--<string name="app_name">OverloadApp</string>-->
-    <string name="app_name">이고지고</string>
+    <string name="app_name">EgoZgo</string>
     <string name="title_activity_main">MainActivity</string>
     <string name="title_activity_driving">DrivingActivity</string>
     <string name="title_activity_registering">RegisteringActivity</string>
