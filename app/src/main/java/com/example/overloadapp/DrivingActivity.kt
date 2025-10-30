@@ -77,6 +77,7 @@ import java.util.Date
 import java.util.Locale
 
 // 화물 데이터 클래스
+
 data class Freight(
     val owner: String,              // 화물주인 이름(또는 회사명)
     val requestTime: String,        // 요청 시간 (YYYYMMDDHHmm)
